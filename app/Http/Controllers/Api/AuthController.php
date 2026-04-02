@@ -35,6 +35,8 @@ class AuthController extends Controller
 
         $token = $user->createToken('mobile-app')->plainTextToken;
 
+        $user->load('interests:id,name');
+
         return response()->json([
             'success' => true,
             'token'   => $token,
@@ -43,6 +45,7 @@ class AuthController extends Controller
                 'username'        => $user->username,
                 'name'            => $user->name,
                 'profile_details' => $user->profile_details,
+                'interests'       => $user->interests,
             ],
         ]);
     }
