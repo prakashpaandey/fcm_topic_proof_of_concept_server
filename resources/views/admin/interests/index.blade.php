@@ -38,6 +38,6 @@
         @endforelse
         </tbody>
     </table>
-    <div style="padding:12px 16px">{{ $interests->links() }}</div>
+    <div style="padding:12px 16px">{{ $interests->links('pagination.custom') }}</div>
 </div>
 @endsection

@@ -162,13 +162,16 @@
         .page-header h1 { font-size: 1.4rem; font-weight: 700; }
 
         /* ── Pagination ── */
-        .pagination { display: flex; gap: 4px; margin-top: 16px; justify-content: flex-end; }
-        .pagination a, .pagination span {
+        .pagination { display: flex; gap: 8px; margin-top: 24px; justify-content: center; align-items: center; }
+        .pagination .page-link {
             display: inline-flex; align-items: center; justify-content: center;
-            width: 32px; height: 32px; border-radius: 6px; font-size: 0.8rem;
+            padding: 0 12px; height: 36px; min-width: 36px; border-radius: 8px; font-size: 0.85rem;
             border: 1px solid var(--border); text-decoration: none; color: var(--muted);
+            background: var(--surface); transition: all .2s; cursor: pointer;
         }
-        .pagination .active span { background: var(--accent); color: #fff; border-color: var(--accent); }
+        .pagination .page-link:hover:not(.disabled) { border-color: var(--accent); color: var(--accent2); background: rgba(108,99,255,.05); }
+        .pagination .page-link.active { background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 600; }
+        .pagination .page-link.disabled { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
 
         /* ── Logout form ── */
         .logout-btn { background: none; border: none; cursor: pointer; color: var(--muted); font-size: 0.85rem; display: flex; align-items: center; gap: 6px; padding: 8px; border-radius: 6px; width: 100%; transition: .2s; }

@@ -42,6 +42,6 @@
         @endforelse
         </tbody>
     </table>
-    <div style="padding:12px 16px">{{ $users->links() }}</div>
+    <div style="padding:12px 16px">{{ $users->links('pagination.custom') }}</div>
 </div>
 @endsection

@@ -50,6 +50,6 @@
         @endforelse
         </tbody>
     </table>
-    <div style="padding:12px 16px">{{ $posts->links() }}</div>
+    <div style="padding:12px 16px">{{ $posts->links('pagination.custom') }}</div>
 </div>
 @endsection
