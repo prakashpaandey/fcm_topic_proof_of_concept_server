@@ -18,7 +18,8 @@ Route::post('/login', [AuthController::class, 'login']);
 // Protected — require valid Sanctum token in Authorization: Bearer header
 Route::middleware('auth:sanctum')->group(function () {
 
-    // Auth
+    // User Profile
+    Route::get('/user',   [AuthController::class, 'me']);
     Route::post('/logout', [AuthController::class, 'logout']);
 
     // Interests — global list

@@ -51,9 +51,26 @@ class AuthController extends Controller
     }
 
     /**
-     * POST /api/logout
-     * Revokes the current token.
+     * GET /api/user
+     * Returns the currently authenticated user's profile details and interests.
      */
+    public function me(Request $request)
+    {
+        $user = $request->user();
+        $user->load('interests:id,name');
+
+        return response()->json([
+            'success'   => true,
+            'user'      => [
+                'id'              => $user->id,
+                'username'        => $user->username,
+                'name'            => $user->name,
+                'profile_details' => $user->profile_details,
+                'interests'       => $user->interests,
+            ],
+        ]);
+    }
+
     public function logout(Request $request)
     {
         $request->user()->currentAccessToken()->delete();
