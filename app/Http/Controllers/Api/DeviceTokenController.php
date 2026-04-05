@@ -21,28 +21,26 @@ class DeviceTokenController extends Controller
         $token = $request->fcm_token;
         $user  = $request->user();
 
-        // Check if this token already exists in the system
-        $existing = DeviceToken::where('fcm_token', $token)->first();
+        // Security: Remove ALL other tokens for this user first
+        // This ensures the user only ever has ONE active device in the system at a time
+        // and prevents "double notifications" if their token changes.
+        DeviceToken::where('user_id', $user->id)->delete();
 
-        if ($existing) {
-            // If token belongs to another user, reassign it
-            if ($existing->user_id !== $user->id) {
-                $existing->update(['user_id' => $user->id]);
-            }
-            // If already assigned to current user — no-op
-        } else {
-            // Register fresh token
-            DeviceToken::create([
-                'user_id'   => $user->id,
-                'fcm_token' => $token,
-            ]);
-        }
+        // Also remove this token if it was previously assigned to someone else
+        DeviceToken::where('fcm_token', $token)->delete();
+
+        // Register the fresh token as the ONLY one for this user
+        DeviceToken::create([
+            'user_id'   => $user->id,
+            'fcm_token' => $token,
+        ]);
 
         return response()->json([
             'success' => true,
-            'message' => 'Device token registered successfully.',
+            'message' => 'Device token updated and old tokens cleared.',
         ]);
     }
+
 
     /**
      * DELETE /api/device-tokens

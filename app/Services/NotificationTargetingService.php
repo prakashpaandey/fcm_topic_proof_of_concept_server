@@ -27,13 +27,15 @@ class NotificationTargetingService
         }
 
         // Find all users whose interests intersect with this post's tags
-        // Exclude the admin who created the post
+        // 🔥 CRITICAL: Only target users who have an active login session (Sanctum tokens)
         $targetUsers = \App\Models\User::whereHas('interests', function ($q) use ($tagIds) {
             $q->whereIn('interests.id', $tagIds);
         })
+        ->whereHas('tokens') 
         ->where('id', '!=', $post->admin_id)
         ->with('deviceTokens')
         ->get();
+
 
         if ($targetUsers->isEmpty()) {
             Log::info("Post #{$post->id}: No matching users found.");
