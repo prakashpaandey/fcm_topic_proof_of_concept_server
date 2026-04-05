@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
 use App\Models\User;
+use App\Models\DeviceToken;
 use Illuminate\Support\Facades\Hash;
 
 class AuthController extends Controller
@@ -71,10 +72,29 @@ class AuthController extends Controller
         ]);
     }
 
+    /**
+     * POST /api/logout
+     * Revokes the current token and optionally removes the associated device token.
+     */
     public function logout(Request $request)
     {
-        $request->user()->currentAccessToken()->delete();
+        $user = $request->user();
 
-        return response()->json(['success' => true, 'message' => 'Logged out successfully.']);
+        // If the client provides an fcm_token, remove it from our database
+        // so that notifications stop immediately.
+        if ($request->has('fcm_token')) {
+            DeviceToken::where('user_id', $user->id)
+                ->where('fcm_token', $request->fcm_token)
+                ->delete();
+        }
+
+        // Revoke the Sanctum access token
+        $user->currentAccessToken()->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Logged out successfully and device token removed.'
+        ]);
     }
+
 }
