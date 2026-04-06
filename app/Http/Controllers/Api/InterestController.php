@@ -24,8 +24,7 @@ class InterestController extends Controller
 
     /**
      * POST /api/user/interests
-     * Syncs the authenticated user's interest selections.
-     * The mobile app sends the full updated list of interest IDs.
+     * Syncs the authenticated user's interest selections and manages FCM topics.
      */
     public function sync(Request $request)
     {
@@ -34,17 +33,42 @@ class InterestController extends Controller
             'interest_ids.*' => 'integer|exists:interests,id',
         ]);
 
-        // Sync replaces existing selections dynamically
-        $request->user()->interests()->sync($request->interest_ids);
+        $user = $request->user();
+        
+        // 1. Get current IDs before sync
+        $oldIds = $user->interests()->pluck('interests.id')->toArray();
+        $newIds = $request->interest_ids;
 
-        $updated = $request->user()->interests()->get(['interests.id', 'name']);
+        // 2. Perform the database sync
+        $user->interests()->sync($newIds);
+
+        // 3. Calculate ADDED and REMOVED IDs
+        $addedIds   = array_diff($newIds, $oldIds);
+        $removedIds = array_diff($oldIds, $newIds);
+
+        // 4. Get all user tokens for subscription management
+        $tokens = $user->deviceTokens()->pluck('fcm_token')->toArray();
+
+        if (!empty($tokens)) {
+            $fcm = app(\App\Services\FcmDeliveryService::class);
+            
+            foreach ($addedIds as $id) {
+                $fcm->subscribeToTopic("interest_{$id}", $tokens);
+            }
+            foreach ($removedIds as $id) {
+                $fcm->unsubscribeFromTopic("interest_{$id}", $tokens);
+            }
+        }
+
+        $updated = $user->interests()->get(['interests.id', 'name']);
 
         return response()->json([
             'success'   => true,
-            'message'   => 'Interests updated successfully.',
+            'message'   => 'Interests updated and topics synchronized.',
             'interests' => $updated,
         ]);
     }
+
 
     /**
      * GET /api/user/interests

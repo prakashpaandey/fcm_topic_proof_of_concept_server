@@ -20,9 +20,11 @@ class DashboardController extends Controller
             'notifications_failed' => NotificationLog::where('status', 'failed')->count(),
         ];
 
-        $recentPosts = Post::with('tags')->latest()->take(5)->get();
-        $recentLogs  = NotificationLog::with('post', 'user')->latest()->take(10)->get();
+        $recentPosts    = Post::with('tags')->latest()->take(5)->get();
+        $recentLogs     = NotificationLog::with('post', 'user')->latest()->take(10)->get();
+        $topicStats     = Interest::withCount('users')->orderBy('users_count', 'desc')->get(['id', 'name']);
 
-        return view('admin.dashboard', compact('stats', 'recentPosts', 'recentLogs'));
+        return view('admin.dashboard', compact('stats', 'recentPosts', 'recentLogs', 'topicStats'));
+
     }
 }

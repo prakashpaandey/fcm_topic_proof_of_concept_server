@@ -35,18 +35,39 @@ class AuthController extends Controller
 
         // 1. Process Device Token (if provided)
         if ($request->has('fcm_token') && $request->fcm_token) {
-            // Delete all previous tokens for this user first
+            $token = $request->fcm_token;
+
+            // 🔥 Ghost Token Cleanup: Find all old tokens and unsubscribe them first
+            $oldTokens   = DeviceToken::where('user_id', $user->id)->pluck('fcm_token')->toArray();
+            $interestIds = $user->interests()->pluck('interests.id')->toArray();
+
+            if (!empty($oldTokens) && !empty($interestIds)) {
+                $fcm = app(\App\Services\FcmDeliveryService::class);
+                foreach ($interestIds as $id) {
+                    $fcm->unsubscribeFromTopic("interest_{$id}", $oldTokens);
+                }
+            }
+
+            // Cleanup local database
             DeviceToken::where('user_id', $user->id)->delete();
-            
-            // Delete this token if previously owned by another user
-            DeviceToken::where('fcm_token', $request->fcm_token)->delete();
+            DeviceToken::where('fcm_token', $token)->delete();
 
             // Store the fresh "Only" token
             DeviceToken::create([
                 'user_id'   => $user->id,
-                'fcm_token' => $request->fcm_token,
+                'fcm_token' => $token,
             ]);
+
+            // Topic Sync: Subscribe the NEW token
+            if (!empty($interestIds)) {
+                $fcm = app(\App\Services\FcmDeliveryService::class);
+                foreach ($interestIds as $id) {
+                    $fcm->subscribeToTopic("interest_{$id}", [$token]);
+                }
+            }
         }
+
+
 
         // 2. Generate Sanctum token
         $token = $user->createToken('mobile-app')->plainTextToken;
@@ -97,9 +118,20 @@ class AuthController extends Controller
     {
         $user = $request->user();
 
+        // 🔥 Topic Sync: Unsubscribe all of this user's tokens from their interests before clearing
+        $interestIds = $user->interests()->pluck('interests.id')->toArray();
+        $tokens      = $user->deviceTokens()->pluck('fcm_token')->toArray();
+
+        if (!empty($interestIds) && !empty($tokens)) {
+            $fcm = app(\App\Services\FcmDeliveryService::class);
+            foreach ($interestIds as $id) {
+                $fcm->unsubscribeFromTopic("interest_{$id}", $tokens);
+            }
+        }
+
         // Security: Aggressively remove EVERY device token for this user
-        // This ensures they stop receiving notifications on EVERY phone immediately.
         DeviceToken::where('user_id', $user->id)->delete();
+
 
         // Revoke the Sanctum access token
         $user->currentAccessToken()->delete();

@@ -21,25 +21,43 @@ class DeviceTokenController extends Controller
         $token = $request->fcm_token;
         $user  = $request->user();
 
-        // Security: Remove ALL other tokens for this user first
-        // This ensures the user only ever has ONE active device in the system at a time
-        // and prevents "double notifications" if their token changes.
-        DeviceToken::where('user_id', $user->id)->delete();
+        // 1. 🔥 Ghost Token Cleanup: Unsubscribe old tokens from all topics before deleting them
+        $oldTokens   = DeviceToken::where('user_id', $user->id)->pluck('fcm_token')->toArray();
+        $interestIds = $user->interests()->pluck('interests.id')->toArray();
 
-        // Also remove this token if it was previously assigned to someone else
+        if (!empty($oldTokens) && !empty($interestIds)) {
+            $fcm = app(\App\Services\FcmDeliveryService::class);
+            foreach ($interestIds as $id) {
+                // Remove all old tokens from this topic
+                $fcm->unsubscribeFromTopic("interest_{$id}", $oldTokens);
+            }
+        }
+
+        // 2. Local Database Sync: Remove entries for this user and this token
+        DeviceToken::where('user_id', $user->id)->delete();
         DeviceToken::where('fcm_token', $token)->delete();
 
-        // Register the fresh token as the ONLY one for this user
+        // 3. Register the fresh token as the ONLY one for this user
         DeviceToken::create([
             'user_id'   => $user->id,
             'fcm_token' => $token,
         ]);
 
+        // 4. Topic Sync: Subscribe the NEW token
+        if (!empty($interestIds)) {
+            $fcm = app(\App\Services\FcmDeliveryService::class);
+            foreach ($interestIds as $id) {
+                $fcm->subscribeToTopic("interest_{$id}", [$token]);
+            }
+        }
+
+
         return response()->json([
             'success' => true,
-            'message' => 'Device token updated and old tokens cleared.',
+            'message' => 'Device token updated and topics synchronized.',
         ]);
     }
+
 
 
     /**

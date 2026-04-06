@@ -31,7 +31,7 @@
     </div>
 </div>
 
-<div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px">
+<div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:20px; margin-top:28px">
 
     <div class="card">
         <div class="card-header">
@@ -60,14 +60,20 @@
 
     <div class="card">
         <div class="card-header">
-            <span><i class="fa-solid fa-bell" style="color:#22c55e;margin-right:8px"></i> Recent Notification Logs</span>
+            <span><i class="fa-solid fa-bell" style="color:#22c55e;margin-right:8px"></i> Notification Logs</span>
         </div>
         <table>
-            <thead><tr><th>User</th><th>Post</th><th>Status</th></tr></thead>
+            <thead><tr><th>Target</th><th>Post</th><th>Status</th></tr></thead>
             <tbody>
             @forelse($recentLogs as $log)
                 <tr>
-                    <td style="font-size:.82rem">{{ $log->user->username ?? '—' }}</td>
+                    <td style="font-size:.82rem">
+                        @if($log->user)
+                            {{ $log->user->username }}
+                        @else
+                            <code style="color:var(--accent2)">{{ ltrim($log->fcm_token, '/topics/') }}</code>
+                        @endif
+                    </td>
                     <td style="font-size:.82rem;color:var(--muted)">{{ Str::limit($log->post->title ?? '—', 25) }}</td>
                     <td>
                         @if($log->status === 'success')
@@ -84,5 +90,25 @@
         </table>
     </div>
 
+    <div class="card">
+        <div class="card-header">
+            <span><i class="fa-solid fa-chart-pie" style="color:#a78bfa;margin-right:8px"></i> Topic Subscriptions</span>
+        </div>
+        <table>
+            <thead><tr><th>Interest / Topic</th><th>Subscribers</th></tr></thead>
+            <tbody>
+            @forelse($topicStats as $topic)
+                <tr>
+                    <td><span class="badge badge-accent">interest_{{ $topic->id }}</span> <span style="margin-left:8px">{{ $topic->name }}</span></td>
+                    <td style="text-align:center;font-weight:700;color:var(--accent2)">{{ $topic->users_count }}</td>
+                </tr>
+            @empty
+                <tr><td colspan="2" style="color:var(--muted);text-align:center;padding:24px">No topics found.</td></tr>
+            @endforelse
+            </tbody>
+        </table>
+    </div>
+
 </div>
+
 @endsection

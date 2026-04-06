@@ -14,53 +14,58 @@ class NotificationTargetingService
 
     /**
      * Main entry point — called right after a Post is created.
-     * Targets users by interests, collects tokens, fires notifications.
+     * Uses High-Performance Topic Dispatching with Deduplication.
      */
     public function dispatchForPost(Post $post): void
     {
-        // Load the post's tags (interest IDs)
-        $tagIds = $post->tags()->pluck('interests.id');
+        // 1. Load the post's tags (Interest IDs)
+        $tagIds = $post->tags()->pluck('interests.id')->unique();
 
         if ($tagIds->isEmpty()) {
             Log::info("Post #{$post->id} has no tags — skipping notification.");
             return;
         }
 
-        // Find all users whose interests intersect with this post's tags
-        // 🔥 CRITICAL: Only target users who have an active login session (Sanctum tokens)
-        $targetUsers = \App\Models\User::whereHas('interests', function ($q) use ($tagIds) {
-            $q->whereIn('interests.id', $tagIds);
-        })
-        ->whereHas('tokens') 
-        ->where('id', '!=', $post->admin_id)
-        ->with('deviceTokens')
-        ->get();
+        $fcm = app(\App\Services\FcmDeliveryService::class);
+        $title = $post->title;
+        $body  = substr(strip_tags($post->text_content), 0, 150);
+        $data  = [
+            'post_id'   => (string) $post->id,
+            'author_id' => (string) $post->admin_id,
+        ];
 
-
-        if ($targetUsers->isEmpty()) {
-            Log::info("Post #{$post->id}: No matching users found.");
-            return;
+        // 2. Build Targeting (Single Topic vs. Combined Condition)
+        if ($tagIds->count() === 1) {
+            $target = "interest_" . $tagIds->first();
+            $result = $fcm->sendToTopic($target, $title, $body, $data);
+            $logTarget = $target;
+        } else {
+            // Firebase allows up to 5 topics in a condition.
+            // We join them with OR (||) to reach anyone who matches at least one tag.
+            $topics = $tagIds->take(5)->map(fn($id) => "'interest_{$id}' in topics");
+            $condition = $topics->implode(' || ');
+            
+            $result = $fcm->sendToCondition($condition, $title, $body, $data);
+            $logTarget = "Condition: " . $condition;
         }
 
-        // Collect device tokens — deduplicate across users
-        $seen = [];
-
-        foreach ($targetUsers as $user) {
-            foreach ($user->deviceTokens as $tokenRecord) {
-                $token = $tokenRecord->fcm_token;
-
-                // Skip already-seen tokens
-                if (in_array($token, $seen)) {
-                    continue;
-                }
-                $seen[] = $token;
-
-                $this->sendAndLog($post, $user, $token);
-            }
+        // 3. Log the dispatch result
+        if ($result['success']) {
+            Log::info("Post #{$post->id}: Successfully dispatched to {$logTarget}.");
+        } else {
+            Log::error("Post #{$post->id}: Failed to dispatch to {$logTarget}. Error: " . ($result['error'] ?? 'Unknown'));
         }
 
-        Log::info("Post #{$post->id}: Dispatched to " . count($seen) . " device(s).");
+        NotificationLog::create([
+            'post_id'       => $post->id,
+            'user_id'       => null,
+            'fcm_token'     => substr($logTarget, 0, 255), // Store the target description
+            'status'        => $result['success'] ? 'success' : 'failed',
+            'error_message' => $result['error'] ?? null,
+        ]);
     }
+
+
 
     /**
      * Send notification to a single token and log the result.
