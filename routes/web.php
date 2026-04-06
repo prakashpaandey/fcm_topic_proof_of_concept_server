@@ -32,5 +32,7 @@ Route::middleware('auth')->prefix('admin')->name('admin.')->group(function () {
     Route::resource('interests', InterestController::class);
 
     // Posts CRUD
+    Route::delete('posts/bulk', [PostController::class, 'bulkDestroy'])->name('posts.bulk-destroy');
     Route::resource('posts', PostController::class);
+
 });

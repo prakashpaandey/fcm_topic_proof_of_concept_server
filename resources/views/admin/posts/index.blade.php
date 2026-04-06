@@ -4,14 +4,19 @@
 @section('content')
 <div class="page-header">
     <h1><i class="fa-solid fa-newspaper" style="color:#f59e0b;margin-right:10px"></i>Posts</h1>
-    <a href="{{ route('admin.posts.create') }}" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Create Post</a>
+    <div style="display:flex;gap:12px">
+        <button id="bulkDeleteBtn" class="btn btn-danger" style="display:none" onclick="handleBulkDelete()">
+            <i class="fa-solid fa-trash-can"></i> Delete Selected (<span id="selectedCount">0</span>)
+        </button>
+        <a href="{{ route('admin.posts.create') }}" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Create Post</a>
+    </div>
 </div>
 
 <div class="card">
-    <table>
+    <table id="postsTable">
         <thead>
             <tr>
-                <th>#</th>
+                <th style="width:40px"><input type="checkbox" id="selectAll" style="accent-color:var(--accent);width:16px;height:16px;cursor:pointer"></th>
                 <th>Title</th>
                 <th>Tags</th>
                 <th>Author</th>
@@ -22,7 +27,11 @@
         <tbody>
         @forelse($posts as $post)
             <tr>
-                <td style="color:var(--muted)">{{ $post->id }}</td>
+                <td>
+                    <input type="checkbox" class="post-checkbox" value="{{ $post->id }}" 
+                           style="accent-color:var(--accent);width:16px;height:16px;cursor:pointer"
+                           onchange="updateBulkDeleteButton()">
+                </td>
                 <td>
                     <a href="{{ route('admin.posts.show', $post) }}" style="color:var(--accent2);text-decoration:none;font-weight:500">
                         {{ Str::limit($post->title, 50) }}
@@ -52,4 +61,61 @@
     </table>
     <div style="padding:12px 16px">{{ $posts->links('pagination.custom') }}</div>
 </div>
+
+<form id="bulkDeleteForm" action="{{ route('admin.posts.bulk-destroy') }}" method="POST" style="display:none">
+    @csrf
+    @method('DELETE')
+</form>
+
+<script>
+    const selectAll      = document.getElementById('selectAll');
+    const checkboxes     = document.querySelectorAll('.post-checkbox');
+    const bulkDeleteBtn  = document.getElementById('bulkDeleteBtn');
+    const selectedCount  = document.getElementById('selectedCount');
+    const bulkDeleteForm = document.getElementById('bulkDeleteForm');
+
+    // Handle "Select All" click
+    selectAll.addEventListener('change', () => {
+        checkboxes.forEach(cb => cb.checked = selectAll.checked);
+        updateBulkDeleteButton();
+    });
+
+    // Update button visibility and count
+    function updateBulkDeleteButton() {
+        const checkedCount = Array.from(checkboxes).filter(cb => cb.checked).length;
+        
+        if (checkedCount > 0) {
+            bulkDeleteBtn.style.display = 'inline-flex';
+            selectedCount.textContent = checkedCount;
+        } else {
+            bulkDeleteBtn.style.display = 'none';
+        }
+
+        // Keep selectAll synced
+        selectAll.checked = (checkedCount === checkboxes.length && checkboxes.length > 0);
+        selectAll.indeterminate = (checkedCount > 0 && checkedCount < checkboxes.length);
+    }
+
+    // Handle Bulk Delete submission
+    function handleBulkDelete() {
+        const checkedIds = Array.from(checkboxes)
+                                .filter(cb => cb.checked)
+                                .map(cb => cb.value);
+        
+        if (checkedIds.length === 0) return;
+
+        if (confirm(`Are you sure you want to delete ${checkedIds.length} selected post(s)?`)) {
+            // Add IDs to the hidden form
+            checkedIds.forEach(id => {
+                const input = document.createElement('input');
+                input.type  = 'hidden';
+                input.name  = 'ids[]';
+                input.value = id;
+                bulkDeleteForm.appendChild(input);
+            });
+            bulkDeleteForm.submit();
+        }
+    }
+</script>
 @endsection
+

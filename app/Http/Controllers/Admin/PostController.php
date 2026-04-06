@@ -91,4 +91,17 @@ class PostController extends Controller
         $post->delete();
         return redirect()->route('admin.posts.index')->with('success', 'Post deleted.');
     }
+
+    public function bulkDestroy(Request $request)
+    {
+        $request->validate([
+            'ids'   => 'required|array',
+            'ids.*' => 'integer|exists:posts,id',
+        ]);
+
+        Post::whereIn('id', $request->ids)->delete();
+
+        return redirect()->route('admin.posts.index')->with('success', count($request->ids) . ' posts deleted.');
+    }
 }
+
