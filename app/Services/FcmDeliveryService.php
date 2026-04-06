@@ -23,9 +23,15 @@ class FcmDeliveryService
      */
     protected function getAccessToken(): string
     {
+        if (!file_exists($this->credentialsPath)) {
+            Log::critical("FCM Error: Firebase Credentials file not found at " . $this->credentialsPath);
+            throw new Exception("Missing Firebase Credentials file.");
+        }
+
         $client = new GoogleClient();
         $client->setAuthConfig($this->credentialsPath);
         $client->addScope('https://www.googleapis.com/auth/firebase.messaging');
+
         $client->fetchAccessTokenWithAssertion();
 
         $token = $client->getAccessToken();

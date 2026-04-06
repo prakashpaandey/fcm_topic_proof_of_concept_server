@@ -13,7 +13,27 @@ class User extends Authenticatable
 {
     use HasFactory, Notifiable, HasApiTokens;
 
+    /**
+     * The "booted" method of the model.
+     * Edge Case: When a user account is deleted, unsubscribe All Their Tokens from All Their Topics.
+     */
+    protected static function booted(): void
+    {
+        static::deleting(function (User $user) {
+            $tokens      = $user->deviceTokens()->pluck('fcm_token')->toArray();
+            $interestIds = $user->interests()->pluck('interests.id')->toArray();
+
+            if (!empty($tokens) && !empty($interestIds)) {
+                $fcm = app(\App\Services\FcmDeliveryService::class);
+                foreach ($interestIds as $id) {
+                    $fcm->unsubscribeFromTopic("interest_{$id}", $tokens);
+                }
+            }
+        });
+    }
+
     protected $fillable = [
+
         'username',
         'name',
         'profile_details',

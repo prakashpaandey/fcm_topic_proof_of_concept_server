@@ -22,9 +22,10 @@ class NotificationTargetingService
         $tagIds = $post->tags()->pluck('interests.id')->unique();
 
         if ($tagIds->isEmpty()) {
-            Log::info("Post #{$post->id} has no tags — skipping notification.");
+            Log::info("Notification Skipped: Post #{$post->id} ('{$post->title}') has no interests/tags attached.");
             return;
         }
+
 
         $fcm = app(\App\Services\FcmDeliveryService::class);
         $title = $post->title;
