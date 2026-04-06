@@ -27,20 +27,21 @@ class FcmDeliveryService
         $client->setAuthConfig($this->credentialsPath);
         $client->addScope('https://www.googleapis.com/auth/firebase.messaging');
         $client->fetchAccessTokenWithAssertion();
-        
+
         $token = $client->getAccessToken();
-        
+
         if (!isset($token['access_token'])) {
             throw new Exception("Failed to retrieve FCM access token.");
         }
-        
+
         return $token['access_token'];
     }
 
     /**
      * Send a single push notification through Firebase HTTP v1 API
+     * @param string $priority 'HIGH' for high priority notifications, 'NORMAL' for low priority (default: 'HIGH')
      */
-    public function send(string $deviceToken, string $title, string $body, array $data = []): array
+    public function send(string $deviceToken, string $title, string $body, array $data = [], string $priority = 'HIGH'): array
     {
         try {
             $accessToken = $this->getAccessToken();
@@ -61,6 +62,15 @@ class FcmDeliveryService
                 'notification' => [
                     'title' => $title,
                     'body'  => $body,
+                ],
+                // 🔥 High Priority Configuration
+                'android' => [
+                    'priority' => 'high',
+                ],
+                'apns' => [
+                    'headers' => [
+                        'apns-priority' => '10', // 10 = Immediate delivery
+                    ],
                 ],
                 'data' => array_map('strval', $data), // Data mapping requires string values in FCM v1
             ],
